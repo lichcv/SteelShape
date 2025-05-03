@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tra cứu tiết diện và tính toán kết cấu</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .error { background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171; }
+    #output ul li { line-height: 1.6; }
+    .svg-container { width: 100px; height: 100px; flex-shrink: 0; }
+    @media (max-width: 640px) {
+      .svg-container { margin: 0.5rem auto; }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="max-w-lg w-full bg-white shadow-lg rounded-lg p-4 m-2">
+    <h2 class="text-2xl font-semibold text-blue-700 mb-3">Tra cứu và tính toán khả năng chịu lực của cấu kiện</h2>
+    <p class="text-sm text-gray-500 mb-4">Lưu ý: Nhập chiều dài và kích thước theo mm, ứng suất theo MPa. Lực và mô men đầu ra theo đơn vị được chọn (T/T·m hoặc kN/kN·m).</p>
+
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Chọn dạng tiết diện:</label>
+      <select id="shape" onchange="hienThongSo()" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+        <option value="circle">Hình tròn đặc</option>
+        <option value="rectangle">Hình chữ nhật</option>
+        <option value="squareBox">Hộp vuông</option>
+        <option value="rectBox">Hộp chữ nhật</option>
+        <option value="pipe">Hình ống tròn</option>
+        <option value="I">Chữ H</option>
+        <option value="U">Chữ U (kênh)</option>
+        <option value="L">Chữ L (góc)</option>
+        <option value="W_shape">Thép I Mỹ (W-shape)</option>
+        <option value="HSS">Thép hộp Mỹ (HSS)</option>
+        <option value="Channel">Thép U Mỹ (Channel)</option>
+        <option value="Angle">Thép L Mỹ (Angle)</option>
+        <option value="I_vn">Thép I Việt Nam</option>
+        <option value="U_vn">Thép U Việt Nam</option>
+      </select>
+    </div>
+
+    <div id="section-illustration" class="mt-2 mb-4"></div>
+
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Chọn đơn vị lực/mô men:</label>
+      <select id="unit" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+        <option value="T">Tấn (T, T·m)</option>
+        <option value="kN" selected>Kilonewton (kN, kN·m)</option>
+      </select>
+    </div>
+
+    <div class="mb-4">
+      <h3 class="text-lg font-medium text-green-600 mb-2">Thông số tiết diện</h3>
+      <div id="inputs" class="grid grid-cols-1 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Cạnh ngoài a (mm):</label>
+          <input id="a" type="number" value="100" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Chiều dày t (mm):</label>
+          <input id="t" type="number" value="3" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <h3 class="text-lg font-medium text-green-600 mb-2">Thông số vật liệu và chiều dài cấu kiện</h3>
+      <div class="grid grid-cols-1 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Chiều dài tính toán L (mm):</label>
+          <input id="L" type="number" value="6000" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Mô đun đàn hồi E (MPa):</label>
+          <input id="E" type="number" value="210000" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Cường độ giới hạn nén (MPa):</label>
+          <input id="sigc" type="number" value="210" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Ứng suất uốn giới hạn (MPa):</label>
+          <input id="sigb" type="number" value="210" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Ứng suất cắt cho phép (MPa):</label>
+          <input id="tau" type="number" value="140" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <button onclick="tinhToan()" class="w-full px-4 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition text-base">Tính toán</button>
+    </div>
+
+    <div id="output" class="border border-gray-200 rounded-md p-4 overflow-auto"></div>
+  </div>
+
+  <script>
+    function getSectionSVG(shape) {
+      switch (shape) {
+        case 'circle':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="82" y="50" font-size="12" font-weight="bold" fill="#FF0000">D</text>
+                    <line x1="50" y1="10" x2="50" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="50" y1="90" x2="50" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'rectangle':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="20" width="80" height="60" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="92" y="50" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="45" y="87" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <line x1="10" y1="15" x2="90" y2="15" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="90" y1="15" x2="10" y2="15" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="20" x2="95" y2="80" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="80" x2="95" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'squareBox':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="10" width="80" height="80" fill="none" stroke="black" stroke-width="5"/>
+                    <rect x="20" y="20" width="60" height="60" fill="#D1D5DB" stroke="black" stroke-width="2"/>
+                    <text x="92" y="50" font-size="12" font-weight="bold" fill="#FF0000">a</text>
+                    <text x="70" y="15" font-size="12" font-weight="bold" fill="#FF0000">t</text>
+                    <line x1="10" y1="5" x2="90" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="90" y1="5" x2="10" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="10" x2="75" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="20" x2="75" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'rectBox':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="20" width="80" height="60" fill="none" stroke="black" stroke-width="5"/>
+                    <rect x="20" y="30" width="60" height="40" fill="#D1D5DB" stroke="black" stroke-width="2"/>
+                    <text x="92" y="50" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="45" y="87" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="70" y="25" font-size="12" font-weight="bold" fill="#FF0000">t</text>
+                    <line x1="10" y1="15" x2="90" y2="15" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="90" y1="15" x2="10" y2="15" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="20" x2="95" y2="80" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="80" x2="95" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="20" x2="75" y2="30" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="30" x2="75" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'pipe':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="black" stroke-width="5"/>
+                    <circle cx="50" cy="50" r="35" fill="#D1D5DB" stroke="black" stroke-width="2"/>
+                    <text x="82" y="50" font-size="12" font-weight="bold" fill="#FF0000">D</text>
+                    <text x="65" y="35" font-size="12" font-weight="bold" fill="#FF0000">t</text>
+                    <line x1="50" y1="10" x2="50" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="50" y1="90" x2="50" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="50" y1="45" x2="50" y2="50" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="50" y1="50" x2="50" y2="45" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'I':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="10" width="80" height="15" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="45" y="25" width="10" height="50" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="75" width="80" height="15" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="97" y="50" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="92" y="20" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="72" y="15" font-size="12" font-weight="bold" fill="#FF0000">t_f</text>
+                    <text x="62" y="50" font-size="12" font-weight="bold" fill="#FF0000">t_w</text>
+                    <line x1="95" y1="10" x2="95" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="90" x2="95" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="10" y1="5" x2="90" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="90" y1="5" x2="10" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="10" x2="75" y2="25" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="25" x2="75" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="65" y1="25" x2="65" y2="75" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="65" y1="75" x2="65" y2="25" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'U':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="10" width="30" height="10" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="20" width="10" height="70" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="80" width="30" height="10" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="97" y="50" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="42" y="15" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="32" y="15" font-size="12" font-weight="bold" fill="#FF0000">t_f</text>
+                    <text x="27" y="50" font-size="12" font-weight="bold" fill="#FF0000">t_w</text>
+                    <line x1="95" y1="10" x2="95" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="90" x2="95" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="10" y1="5" x2="40" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="40" y1="5" x2="10" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="35" y1="10" x2="35" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="35" y1="20" x2="35" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="30" y1="20" x2="30" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="30" y1="90" x2="30" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'L':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="10" width="20" height="80" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="70" width="80" height="20" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="97" y="50" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="92" y="85" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="37" y="15" font-size="12" font-weight="bold" fill="#FF0000">t</text>
+                    <line x1="95" y1="10" x2="95" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="90" x2="95" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="10" y1="95" x2="90" y2="95" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="90" y1="95" x2="10" y2="95" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="40" y1="10" x2="40" y2="30" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="40" y1="30" x2="40" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'W_shape':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="10" width="80" height="15" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="45" y="25" width="10" height="50" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="75" width="80" height="15" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="97" y="50" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="92" y="20" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="72" y="15" font-size="12" font-weight="bold" fill="#FF0000">t_f</text>
+                    <text x="62" y="50" font-size="12" font-weight="bold" fill="#FF0000">t_w</text>
+                    <line x1="95" y1="10" x2="95" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="90" x2="95" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="10" y1="5" x2="90" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="90" y1="5" x2="10" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="10" x2="75" y2="25" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="25" x2="75" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="65" y1="25" x2="65" y2="75" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="65" y1="75" x2="65" y2="25" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'HSS':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="20" width="80" height="60" fill="none" stroke="black" stroke-width="5"/>
+                    <rect x="20" y="30" width="60" height="40" fill="#D1D5DB" stroke="black" stroke-width="2"/>
+                    <text x="92" y="50" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="45" y="87" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="70" y="25" font-size="12" font-weight="bold" fill="#FF0000">t</text>
+                    <line x1="10" y1="15" x2="90" y2="15" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="90" y1="15" x2="10" y2="15" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="20" x2="95" y2="80" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="80" x2="95" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="20" x2="75" y2="30" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="30" x2="75" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'Channel':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="10" width="30" height="10" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="20" width="10" height="70" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="80" width="30" height="10" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="97" y="50" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="42" y="15" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="32" y="15" font-size="12" font-weight="bold" fill="#FF0000">t_f</text>
+                    <text x="27" y="50" font-size="12" font-weight="bold" fill="#FF0000">t_w</text>
+                    <line x1="95" y1="10" x2="95" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="90" x2="95" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="10" y1="5" x2="40" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="40" y1="5" x2="10" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="35" y1="10" x2="35" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="35" y1="20" x2="35" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="30" y1="20" x2="30" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="30" y1="90" x2="30" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'Angle':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="10" width="20" height="80" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="70" width="80" height="20" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="97" y="50" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="92" y="85" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="37" y="15" font-size="12" font-weight="bold" fill="#FF0000">t</text>
+                    <line x1="95" y1="10" x2="95" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="90" x2="95" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="10" y1="95" x2="90" y2="95" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="90" y1="95" x2="10" y2="95" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="40" y1="10" x2="40" y2="30" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="40" y1="30" x2="40" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'I_vn':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="10" width="80" height="15" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="45" y="25" width="10" height="50" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="75" width="80" height="15" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="97" y="50" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="92" y="20" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="72" y="15" font-size="12" font-weight="bold" fill="#FF0000">t_f</text>
+                    <text x="62" y="50" font-size="12" font-weight="bold" fill="#FF0000">t_w</text>
+                    <line x1="95" y1="10" x2="95" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="90" x2="95" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="10" y1="5" x2="90" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="90" y1="5" x2="10" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="10" x2="75" y2="25" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="75" y1="25" x2="75" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="65" y1="25" x2="65" y2="75" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="65" y1="75" x2="65" y2="25" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        case 'U_vn':
+          return `<svg class="svg-container" viewBox="0 0 100 100">
+                    <rect x="10" y="10" width="30" height="10" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="20" width="10" height="70" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <rect x="10" y="80" width="30" height="10" fill="#A3E635" stroke="black" stroke-width="2"/>
+                    <text x="97" y="50" font-size="12" font-weight="bold" fill="#FF0000">h</text>
+                    <text x="42" y="15" font-size="12" font-weight="bold" fill="#FF0000">b</text>
+                    <text x="32" y="15" font-size="12" font-weight="bold" fill="#FF0000">t_f</text>
+                    <text x="27" y="50" font-size="12" font-weight="bold" fill="#FF0000">t_w</text>
+                    <line x1="95" y1="10" x2="95" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="95" y1="90" x2="95" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="10" y1="5" x2="40" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="40" y1="5" x2="10" y2="5" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="35" y1="10" x2="35" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="35" y1="20" x2="35" y2="10" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="30" y1="20" x2="30" y2="90" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <line x1="30" y1="90" x2="30" y2="20" stroke="black" stroke-width="1" marker-end="url(#arrow)"/>
+                    <defs>
+                      <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 Z" fill="black"/>
+                      </marker>
+                    </defs>
+                  </svg>`;
+        default:
+          return '';
+      }
+    }
+
+    function updateSectionIllustration() {
+      const shape = document.getElementById('shape').value;
+      const svg = getSectionSVG(shape);
+      document.getElementById('section-illustration').innerHTML = `
+        <div class="md:flex md:items-center md:gap-4">
+          <div class="svg-container mx-auto">${svg}</div>
+        </div>
+      `;
+    }
+
+    function hienThongSo() {
+      const shape = document.getElementById('shape').value;
+      let html = '';
+      if (shape === 'circle') {
+        html = `<div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Đường kính D (mm):</label>
+                  <input id="D" type="number" value="100" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>`;
+      } else if (shape === 'rectangle') {
+        html = `<div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều rộng b (mm):</label>
+                  <input id="b" type="number" value="80" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều cao h (mm):</label>
+                  <input id="h" type="number" value="120" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>`;
+      } else if (shape === 'squareBox') {
+        html = `<div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Cạnh ngoài a (mm):</label>
+                  <input id="a" type="number" value="100" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều dày t (mm):</label>
+                  <input id="t" type="number" value="3" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>`;
+      } else if (shape === 'rectBox') {
+        html = `<div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều rộng ngoài b (mm):</label>
+                  <input id="b" type="number" value="100" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều cao ngoài h (mm):</label>
+                  <input id="h" type="number" value="80" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều dày t (mm):</label>
+                  <input id="t" type="number" value="4" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>`;
+      } else if (shape === 'pipe') {
+        html = `<div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Đường kính ngoài D (mm):</label>
+                  <input id="D" type="number" value="100" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều dày t (mm):</label>
+                  <input id="t" type="number" value="4" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>`;
+      } else if (shape === 'I' || shape === 'W_shape' || shape === 'I_vn') {
+        html = `<div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều cao h (mm):</label>
+                  <input id="h" type="number" value="200" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều rộng cánh b (mm):</label>
+                  <input id="b" type="number" value="100" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Độ dày cánh t_f (mm):</label>
+                  <input id="tf" type="number" value="8" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Độ dày thân t_w (mm):</label>
+                  <input id="tw" type="number" value="6" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>`;
+      } else if (shape === 'U' || shape === 'Channel' || shape === 'U_vn') {
+        html = `<div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều cao h (mm):</label>
+                  <input id="h" type="number" value="150" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều rộng cánh b (mm):</label>
+                  <input id="b" type="number" value="80" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Độ dày cánh t_f (mm):</label>
+                  <input id="tf" type="number" value="7" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Độ dày thân t_w (mm):</label>
+                  <input id="tw" type="number" value="5" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>`;
+      } else if (shape === 'L' || shape === 'Angle') {
+        html = `<div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều cao h (mm):</label>
+                  <input id="h" type="number" value="100" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều rộng b (mm):</label>
+                  <input id="b" type="number" value="100" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Độ dày t (mm):</label>
+                  <input id="t" type="number" value="10" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>`;
+      } else if (shape === 'HSS') {
+        html = `<div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều rộng ngoài b (mm):</label>
+                  <input id="b" type="number" value="150" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều cao ngoài h (mm):</label>
+                  <input id="h" type="number" value="100" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Chiều dày t (mm):</label>
+                  <input id="t" type="number" value="6" min="0" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                </div>`;
+      }
+      document.getElementById('inputs').innerHTML = html;
+      document.getElementById('output').innerHTML = ''; // Xóa kết quả cũ
+      updateSectionIllustration(); // Cập nhật minh họa
+    }
+
+    function validateInput(id, label) {
+      const value = parseFloat(document.getElementById(id).value);
+      if (isNaN(value) || value <= 0) {
+        document.getElementById('output').innerHTML = `<p class="error p-3 rounded-md">Lỗi: ${label} phải là số dương</p>`;
+        return false;
+      }
+      return value;
+    }
+
+    function tinhToan() {
+      const shape = document.getElementById('shape').value;
+      const unit = document.getElementById('unit').value;
+
+      const inputs = {
+        E: validateInput('E', 'Mô đun đàn hồi'),
+        L: validateInput('L', 'Chiều dài tính toán'),
+        sigc: validateInput('sigc', 'Cường độ giới hạn nén'),
+        sigb: validateInput('sigb', 'Ứng suất uốn giới hạn'),
+        tau: validateInput('tau', 'Ứng suất cắt cho phép')
+      };
+      if (Object.values(inputs).includes(false)) return;
+
+      let A = 0, Ix = 0, rx = 0, c = 0;
+      if (shape === 'circle') {
+        const D = validateInput('D', 'Đường kính');
+        if (!D) return;
+        A = Math.PI * D ** 2 / 4;
+        Ix = Math.PI * D ** 4 / 64;
+        c = D / 2;
+      } else if (shape === 'rectangle') {
+        const b = validateInput('b', 'Chiều rộng');
+        const h = validateInput('h', 'Chiều cao');
+        if (!b || !h) return;
+        A = b * h;
+        Ix = b * h ** 3 / 12;
+        c = h / 2;
+      } else if (shape === 'squareBox') {
+        const a = validateInput('a', 'Cạnh ngoài');
+        const t = validateInput('t', 'Chiều dày');
+        if (!a || !t) return;
+        if (t >= a / 2) {
+          document.getElementById('output').innerHTML = `<p class="error p-3 rounded-md">Lỗi: Chiều dày phải nhỏ hơn nửa cạnh ngoài</p>`;
+          return;
+        }
+        A = a ** 2 - (a - 2 * t) ** 2;
+        Ix = (a ** 4 - (a - 2 * t) ** 4) / 12;
+        c = a / 2;
+      } else if (shape === 'rectBox' || shape === 'HSS') {
+        const b = validateInput('b', 'Chiều rộng ngoài');
+        const h = validateInput('h', 'Chiều cao ngoài');
+        const t = validateInput('t', 'Chiều dày');
+        if (!b || !h || !t) return;
+        if (t >= Math.min(b, h) / 2) {
+          document.getElementById('output').innerHTML = `<p class="error p-3 rounded-md">Lỗi: Chiều dày phải nhỏ hơn nửa chiều rộng hoặc chiều cao</p>`;
+          return;
+        }
+        A = b * h - (b - 2 * t) * (h - 2 * t);
+        Ix = (b * h ** 3 - (b - 2 * t) * (h - 2 * t) ** 3) / 12;
+        c = h / 2;
+      } else if (shape === 'pipe') {
+        const D = validateInput('D', 'Đường kính ngoài');
+        const t = validateInput('t', 'Chiều dày');
+        if (!D || !t) return;
+        if (t >= D / 2) {
+          document.getElementById('output').innerHTML = `<p class="error p-3 rounded-md">Lỗi: Chiều dày phải nhỏ hơn nửa đường kính ngoài</p>`;
+          return;
+        }
+        const d = D - 2 * t;
+        A = Math.PI * (D ** 2 - d ** 2) / 4;
+        Ix = Math.PI * (D ** 4 - d ** 4) / 64;
+        c = D / 2;
+      } else if (shape === 'I' || shape === 'W_shape' || shape === 'I_vn') {
+        const h = validateInput('h', 'Chiều cao');
+        const b = validateInput('b', 'Chiều rộng cánh');
+        const tf = validateInput('tf', 'Độ dày cánh');
+        const tw = validateInput('tw', 'Độ dày thân');
+        if (!h || !b || !tf || !tw) return;
+        if (tf >= h / 2 || tw >= b) {
+          document.getElementById('output').innerHTML = `<p class="error p-3 rounded-md">Lỗi: Độ dày cánh phải nhỏ hơn nửa chiều cao, độ dày thân phải nhỏ hơn chiều rộng cánh</p>`;
+          return;
+        }
+        A = 2 * b * tf + (h - 2 * tf) * tw;
+        Ix = (b * h ** 3 - (b - tw) * (h - 2 * tf) ** 3) / 12;
+        c = h / 2;
+      } else if (shape === 'U' || shape === 'Channel' || shape === 'U_vn') {
+        const h = validateInput('h', 'Chiều cao');
+        const b = validateInput('b', 'Chiều rộng cánh');
+        const tf = validateInput('tf', 'Độ dày cánh');
+        const tw = validateInput('tw', 'Độ dày thân');
+        if (!h || !b || !tf || !tw) return;
+        if (tf >= h || tw >= h) {
+          document.getElementById('output').innerHTML = `<p class="error p-3 rounded-md">Lỗi: Độ dày cánh hoặc thân phải nhỏ hơn chiều cao</p>`;
+          return;
+        }
+        A = 2 * b * tf + (h - tf) * tw;
+        const yc = ((h - tf) * tw * (h - tf) / 2 + 2 * b * tf * (h - tf / 2)) / A;
+        Ix = (tw * (h - tf) ** 3 / 12 + tw * (h - tf) * ((h - tf) / 2 - yc) ** 2) +
+             2 * (b * tf ** 3 / 12 + b * tf * (h - tf / 2 - yc) ** 2);
+        c = Math.max(yc, h - yc);
+      } else if (shape === 'L' || shape === 'Angle') {
+        const h = validateInput('h', 'Chiều cao');
+        const b = validateInput('b', 'Chiều rộng');
+        const t = validateInput('t', 'Độ dày');
+        if (!h || !b || !t) return;
+        if (t >= Math.min(h, b)) {
+          document.getElementById('output').innerHTML = `<p class="error p-3 rounded-md">Lỗi: Độ dày phải nhỏ hơn chiều cao và chiều rộng</p>`;
+          return;
+        }
+        A = t * (h + b - t);
+        const yc = (h ** 2 + b * t - t ** 2) / (2 * (h + b - t));
+        Ix = (t * h ** 3 / 12 + t * h * (h / 2 - yc) ** 2) +
+             ((b - t) * t ** 3 / 12 + (b - t) * t * (yc - t / 2) ** 2);
+        c = Math.max(yc, h - yc);
+      }
+
+      rx = Math.sqrt(Ix / A);
+      const lambda = inputs.L / rx;
+      let phi = 1;
+      if (lambda > 0) {
+        const pi2E = Math.PI ** 2 * inputs.E;
+        phi = Math.min(1, pi2E / (lambda ** 2 * inputs.sigc));
+      }
+      const Pmax = phi * inputs.sigc * A / (unit === 'T' ? 9800 : 1000);
+      const Mmax = inputs.sigb * Ix / c / (unit === 'T' ? 9800 * 1000 : 1000 * 1000);
+      const Vmax = inputs.tau * A / (unit === 'T' ? 9800 : 1000);
+
+      document.getElementById('output').innerHTML = `
+        <h3 class="text-lg font-medium text-red-600 mb-2">Kết quả tính toán</h3>
+        <ul class="text-sm text-gray-700">
+          <li>Diện tích mặt cắt: ${A.toFixed(2)} mm²</li>
+          <li>Mô men quán tính Ix: ${Ix.toExponential(2)} mm⁴</li>
+          <li>Bán kính hồi chuyển rx: ${rx.toFixed(2)} mm</li>
+          <li>Độ mảnh λ: ${lambda.toFixed(2)}</li>
+          <li>Hệ số giảm yếu φ: ${phi.toFixed(3)}</li>
+          <li>Lực nén max: ${Pmax.toFixed(2)} ${unit}</li>
+          <li>Mô men uốn max: ${Mmax.toFixed(2)} ${unit === 'T' ? 'T·m' : 'kN·m'}</li>
+          <li>Lực cắt max: ${Vmax.toFixed(2)} ${unit}</li>
+        </ul>
+      `;
+    }
+
+    // Khởi tạo giao diện
+    hienThongSo();
+  </script>
+</body>
+</html>
